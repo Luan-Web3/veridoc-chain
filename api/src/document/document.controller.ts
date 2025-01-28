@@ -4,6 +4,8 @@ import {
   UploadedFile,
   UseInterceptors,
   BadRequestException,
+  Param,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { DocumentService } from './document.service';
@@ -21,5 +23,10 @@ export class DocumentController {
     }
 
     return this.documentService.saveTemporaryFile(file);
+  }
+
+  @Post('process/:id')
+  async processPaymentAndSaveToIPFS(@Param('id', ParseIntPipe) id: number) {
+    return this.documentService.processPaymentAndSaveToIPFS(id);
   }
 }
