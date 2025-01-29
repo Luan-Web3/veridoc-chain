@@ -17,7 +17,7 @@ export const uploadFile = async (endpoint: string, data: any) => {
   }
 };
 
-export const processPayment = async (id: number) => {
+export const processPayment = async (id: number | string) => {
   try {
     const response = await api.post(`/process/${id}`);
     return response.data;

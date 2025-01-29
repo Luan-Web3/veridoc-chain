@@ -1,36 +1,35 @@
-import { uploadFile } from '@/pages/api';
+import { uploadFile, processPayment } from '@/pages/api';
 import { useState } from 'react';
 import { BiCheck } from 'react-icons/bi';
 import { CgCreditCard } from 'react-icons/cg';
-import { FaCloudUploadAlt } from 'react-icons/fa';
+import { FaCloudUploadAlt, FaSpinner } from 'react-icons/fa';
+import { toast } from 'react-toastify';
 
 export default function UploadSection() {
   const [file, setFile] = useState<File | null>(null);
   const [status, setStatus] = useState('');
+  const [documentId, setDocumentId] = useState<number | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  // Novo handler para o input file
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
       setFile(selectedFile);
-      // Criar e enviar o FormData automaticamente quando o arquivo é selecionado
+
       const formData = new FormData();
       formData.append('file', selectedFile);
+
       console.log('File selected:', selectedFile.name);
-      console.log('FormData entries:');
-      for (let [key, value] of formData.entries()) {
-        console.log(key, value);
-      }
-      
-      // Chama handleUpload automaticamente
+
       const form = e.target.form;
+      toast.success('Arquivo carregado com sucesso!');
+
       if (form) {
         form.dispatchEvent(new Event('submit', { cancelable: true }));
       }
     }
   };
 
-  // Seu handleUpload original permanece inalterado
   const handleUpload = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!file) return;
@@ -41,10 +40,44 @@ export default function UploadSection() {
     setStatus('Enviando...');
     console.log(formData);
 
-    const response = await uploadFile('/upload', formData);
-    const data = await response.json();
-    
-    setStatus(data.message);
+    try {
+      const response = await uploadFile('/upload', formData);
+      const data = await response.json();
+
+      setDocumentId(data.id); // API deve retornar um ID do documento uploadado
+      setStatus(data.message);
+
+      toast.success('Arquivo enviado com sucesso!');
+
+    } catch (error) {
+      toast.error('Erro ao enviar arquivo');
+      console.error(error);
+    }
+  };
+
+  const handlePayment = async () => {
+    if (!file) {
+      toast.error('Documento não encontrado');
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      if (documentId !== null) {
+        await processPayment(documentId);
+
+        toast.success('Pagamento processado com sucesso!');
+
+        setStatus('Pagamento confirmado');
+      } else {
+        toast.error('ID do documento não encontrado');
+      }
+    } catch (error) {
+      toast.error('Erro ao processar pagamento');
+      console.error(error);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -67,6 +100,26 @@ export default function UploadSection() {
               />
             </label>
           </div>
+          {file && (
+            <button
+              type="button"
+              onClick={handlePayment}
+              disabled={isProcessing}
+              className="mt-10 w-full flex items-center justify-center gap-2 bg-amber-400 text-gray-950 font-semibold py-3 rounded-lg hover:bg-amber-500 hover:text-gray-950 transition duration-300 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              {isProcessing ? (
+                <>
+                  <FaSpinner className="animate-spin" />
+                  Processando...
+                </>
+              ) : (
+                <>
+                  <CgCreditCard />
+                  Proceder para pagamento
+                </>
+              )}
+            </button>
+          )}
           {status && <p className="mt-4 text-center text-white">{status}</p>}
         </form>
       </div>
