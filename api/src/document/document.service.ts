@@ -2,12 +2,18 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Multer } from 'multer';
 import * as crypto from 'crypto';
+import { IpfsService } from '../ipfs/ipfs.service';
+import * as FormData from 'form-data';
+import { Readable } from 'stream';
 // import * as bitcoin from 'bitcoinjs-lib';
 
 @Injectable()
 export class DocumentService {
 
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly ipfs: IpfsService,
+  ) { }
 
   async saveTemporaryFile(file: Multer.File) {
     const hash = crypto.createHash('sha256').update(file.buffer).digest('hex');
@@ -35,35 +41,40 @@ export class DocumentService {
   }
 
   async processPaymentAndSaveToIPFS(id: number) {
-    return { id }
-    // // 1. Buscar o arquivo temporário no SQLite
-    // const tempDoc = await this.prisma.temporaryDocument.findUnique({ where: { id } });
-    // if (!tempDoc) {
-    //   throw new NotFoundException('Arquivo não encontrado');
-    // }
+    // 1. Buscar o arquivo temporário no SQLite
+    const tempDoc = await this.prisma.temporaryDocument.findUnique({ where: { id } });
+    if (!tempDoc) {
+      throw new NotFoundException('Arquivo não encontrado');
+    }
 
-    // // 2. Simular o pagamento (por enquanto apenas um passo fictício)
-    // if (tempDoc.isPaid) {
-    //   throw new Error('Arquivo já foi pago e processado.');
-    // }
+    // 2. Simular o pagamento (por enquanto apenas um passo fictício)
+    if (tempDoc.isPaid) {
+      throw new Error('Arquivo já foi pago e processado.');
+    }
 
-    // // 3. Salvar o arquivo no IPFS
-    // const ipfsResult = await this.ipfsClient.add(tempDoc.fileBuffer);
+    // 3. Salvar o arquivo no IPFS
+    const blob = new Blob([tempDoc.fileBuffer], { type: 'application/octet-stream' });
+
+    // 4. Enviar para o IPFS
+    const ipfsResult = await this.ipfs.uploadFile(blob);
+    // const ipfsResult = await this.ipfs.uploadFile(tempDoc.fileBuffer);
+    return
+    console.log({ ipfsResult });
     // const ipfsCid = ipfsResult.cid.toString();
 
     // console.log(`Arquivo salvo no IPFS com CID: ${ipfsCid}`);
 
-    // // 4. Registrar o hash e o CID na blockchain Regtest
-    // // const regtestNetwork = bitcoin.networks.regtest;
-    // // const keyPair = bitcoin.ECPair.makeRandom({ network: regtestNetwork });
+    // 4. Registrar o hash e o CID na blockchain Regtest
+    // const regtestNetwork = bitcoin.networks.regtest;
+    // const keyPair = bitcoin.ECPair.makeRandom({ network: regtestNetwork });
 
-    // // const { address } = bitcoin.payments.p2pkh({ pubkey: keyPair.publicKey, network: regtestNetwork });
-    // // console.log(`Registrando na blockchain com endereço: ${address}`);
+    // const { address } = bitcoin.payments.p2pkh({ pubkey: keyPair.publicKey, network: regtestNetwork });
+    // console.log(`Registrando na blockchain com endereço: ${address}`);
 
     // const transactionHex = `Registro do IPFS - Hash: ${tempDoc.hash}, CID: ${ipfsCid}`;
     // console.log(`Transação na blockchain: ${transactionHex}`);
 
-    // // 5. Atualizar o status no SQLite
+    // 5. Atualizar o status no SQLite
     // await this.prisma.temporaryDocument.update({
     //   where: { id },
     //   data: {
@@ -71,10 +82,10 @@ export class DocumentService {
     //   },
     // });
 
-    // return {
-    //   message: 'Arquivo processado com sucesso!',
-    //   ipfsCid,
-    //   transactionHex,
-    // };
+    return {
+      message: 'Arquivo processado com sucesso!',
+      // ipfsCid,
+      // transactionHex,
+    };
   }
 }

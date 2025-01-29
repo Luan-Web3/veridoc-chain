@@ -23,7 +23,6 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
-    "@helia/unixfs": "^4.0.2",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.0",
     "@nestjs/core": "^11.0.1",
@@ -32,10 +31,10 @@
     "bitcoin-core": "^5.0.0",
     "crypto": "^1.0.1",
     "dotenv": "^16.4.7",
-    "helia": "^5.2.0",
     "ipfs-http-client": "^60.0.1",
     "multer": "^1.4.5-lts.1",
     "multiformats": "^13.3.1",
+    "pinata-web3": "^0.5.4",
     "prisma": "^6.2.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
