@@ -3,9 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { Multer } from 'multer';
 import * as crypto from 'crypto';
 import { IpfsService } from '../ipfs/ipfs.service';
-import * as FormData from 'form-data';
-import { Readable } from 'stream';
-// import * as bitcoin from 'bitcoinjs-lib';
+import { BitcoinService } from '../bitcoin/bitcoin.service';
 
 @Injectable()
 export class DocumentService {
@@ -13,79 +11,81 @@ export class DocumentService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly ipfs: IpfsService,
+    private readonly bitcoin: BitcoinService,
   ) { }
 
   async saveTemporaryFile(file: Multer.File) {
-    const hash = crypto.createHash('sha256').update(file.buffer).digest('hex');
+    try {
+      const hash = crypto.createHash('sha256').update(file.buffer).digest('hex');
 
-    const fileSizeInMB = file.size / 1_048_576;
-    const paymentAmount = fileSizeInMB * 0.001;
+      const fileSizeInMB = file.size / 1_048_576;
+      const paymentAmount = fileSizeInMB * 0.001;
 
-    const tempDoc = await this.prisma.temporaryDocument.create({
-      data: {
+      const tempDoc = await this.prisma.temporaryDocument.create({
+        data: {
+          hash,
+          filename: file.originalname,
+          size: file.size,
+          paymentAmount,
+          fileBuffer: file.buffer,
+          isPaid: false,
+        },
+      });
+
+      return {
+        id: tempDoc.id,
         hash,
-        filename: file.originalname,
-        size: file.size,
         paymentAmount,
-        fileBuffer: file.buffer,
-        isPaid: false,
-      },
-    });
-
-    return {
-      id: tempDoc.id,
-      hash,
-      paymentAmount,
-      message: 'File saved temporarily. Please complete payment to continue',
-    };
+        message: 'File saved temporarily. Please complete payment to continue',
+      };
+    } catch (error) {
+      console.error('Error saving temporary file:', error);
+      throw error;
+    }
   }
 
   async processPaymentAndSaveToIPFS(id: number) {
-    // 1. Buscar o arquivo temporário no SQLite
-    const tempDoc = await this.prisma.temporaryDocument.findUnique({ where: { id } });
-    if (!tempDoc) {
-      throw new NotFoundException('Arquivo não encontrado');
+    try {
+      const tempDoc = await this.prisma.temporaryDocument.findUnique({ where: { id } });
+      if (!tempDoc) {
+        throw new NotFoundException('File not found');
+      }
+
+      if (tempDoc.isPaid) {
+        throw new Error('File already paid and processed.');
+      }
+
+      const txid = await this.bitcoin.sendFromAddress(tempDoc.paymentAmount);
+
+      const blob = new Blob([tempDoc.fileBuffer], { type: 'application/octet-stream' });
+
+      const ipfsResult = await this.ipfs.uploadFile(blob);
+      const cid = ipfsResult.IpfsHash;
+      console.log({ cid })
+
+      await this.prisma.document.create({
+        data: {
+          txid,
+          cid,
+        },
+      });
+
+      await this.prisma.temporaryDocument.update({
+        where: { id },
+        data: {
+          isPaid: true,
+        },
+      });
+
+      return {
+        message: 'File processed successfully!',
+        txid,
+        cid,
+      };
+    } catch (error) {
+      console.error('Error processing payment and saving to IPFS:', error);
+      throw error;
     }
-
-    // 2. Simular o pagamento (por enquanto apenas um passo fictício)
-    if (tempDoc.isPaid) {
-      throw new Error('Arquivo já foi pago e processado.');
-    }
-
-    // 3. Salvar o arquivo no IPFS
-    const blob = new Blob([tempDoc.fileBuffer], { type: 'application/octet-stream' });
-
-    // 4. Enviar para o IPFS
-    const ipfsResult = await this.ipfs.uploadFile(blob);
-    // const ipfsResult = await this.ipfs.uploadFile(tempDoc.fileBuffer);
-    return
-    console.log({ ipfsResult });
-    // const ipfsCid = ipfsResult.cid.toString();
-
-    // console.log(`Arquivo salvo no IPFS com CID: ${ipfsCid}`);
-
-    // 4. Registrar o hash e o CID na blockchain Regtest
-    // const regtestNetwork = bitcoin.networks.regtest;
-    // const keyPair = bitcoin.ECPair.makeRandom({ network: regtestNetwork });
-
-    // const { address } = bitcoin.payments.p2pkh({ pubkey: keyPair.publicKey, network: regtestNetwork });
-    // console.log(`Registrando na blockchain com endereço: ${address}`);
-
-    // const transactionHex = `Registro do IPFS - Hash: ${tempDoc.hash}, CID: ${ipfsCid}`;
-    // console.log(`Transação na blockchain: ${transactionHex}`);
-
-    // 5. Atualizar o status no SQLite
-    // await this.prisma.temporaryDocument.update({
-    //   where: { id },
-    //   data: {
-    //     isPaid: true,
-    //   },
-    // });
-
-    return {
-      message: 'Arquivo processado com sucesso!',
-      // ipfsCid,
-      // transactionHex,
-    };
   }
 }
+

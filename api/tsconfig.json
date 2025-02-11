@@ -5,6 +5,7 @@
     "removeComments": true,
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
+    "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "target": "ES2021",
     "sourceMap": true,
@@ -13,9 +14,9 @@
     "incremental": true,
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
-    "moduleResolution": "Node",
-    "include": [
-      "src/**/*"
-    ]
-  }
+    "moduleResolution": "Node"
+  },
+  "include": [
+    "src/**/*"
+  ]
 }

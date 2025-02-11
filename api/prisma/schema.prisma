@@ -23,3 +23,10 @@ model TemporaryDocument {
   isPaid        Boolean  @default(false)
   createdAt     DateTime @default(now())
 }
+
+model Document {
+  id        String   @id @default(uuid())
+  txid      String   @unique
+  cid       String
+  createdAt DateTime @default(now())
+}

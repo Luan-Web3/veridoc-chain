@@ -19,7 +19,7 @@ export class DocumentController {
   @UseInterceptors(FileInterceptor('file'))
   async uploadFile(@UploadedFile() file: Multer.File) {
     if (!file) {
-      throw new BadRequestException('O arquivo é obrigatório!');
+      throw new BadRequestException('The file is required!');
     }
 
     return this.documentService.saveTemporaryFile(file);
